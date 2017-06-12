@@ -1,0 +1,69 @@
+---
+title: "Coursera Practical Machine Learning Course Prediction Assignment"
+author: "Simon Ting"
+date: "2017-6-11"
+output: html_document
+---
+
+## Project's Background
+
+In this project, my goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+## Data 
+
+The training data for this project are available here:
+  
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+  
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+## Solution
+### 1. Data Preprocessing
+
+Firstly,loading required packages needed in this project.
+
+```{r}
+library(caret)
+library(RANN)
+library(dplyr)
+```
+Secondly,we load the data of training set and test set.
+```{r}
+training <- read.csv("pml-training.csv", stringsAsFactors=FALSE)
+testing<- read.csv("pml-testing.csv", stringsAsFactors=FALSE)
+```
+Because there are many NA values,we remove features which contain many NA or Null values then use knnImpute to fill others NA values.Lastly,we standardize the features and use pca to reduce features.
+```{r}
+training$classe <- as.factor(training$classe)
+nacount<-apply(is.na(training),2,sum)
+training<-training[,names(nacount[nacount<=nrow(training)/2])]
+nullcount<-apply(training=="",2,sum)
+training<-training[,names(nullcount[nullcount<=nrow(training)/2])]
+preObj <- preProcess(training[,-length(training)],method=c("center", "scale", "knnImpute", "pca"), thresh=0.9)
+train <- predict(preObj,training[,-length(training)])
+```
+### 2. Modelling and Prediction
+
+After preprocessing the data we start to modelling.Firstly,we sampling the data,then use knn to train data.
+Then calculate the acuracy of training set as below:
+```{r}
+train<-cbind(train,classe=training$classe)
+train_sample<-rbind(train[train$classe =="A",][sample(1:nrow(train[train$classe =="A",]),1000),],
+                          train[train$classe =="B",][sample(1:nrow(train[train$classe =="B",]),1000),],
+                          train[train$classe =="C",][sample(1:nrow(train[train$classe =="C",]),1000),],
+                          train[train$classe =="D",][sample(1:nrow(train[train$classe =="D",]),1000),],
+                          train[train$classe =="E",][sample(1:nrow(train[train$classe =="E",]),1000),])
+model <- train(classe ~.,data=train_sample, method="knn")
+ptrain<-predict(model,train)
+print("data accuracy:")
+sum(ptrain==train$classe)/nrow(train)
+
+```
+Finally, we aply the model to the testing set.
+```{r}
+testing<-testing[,names(training[,-length(training)])]
+test <- predict(preObj, testing)
+ptest<-predict(model,test)
+```
